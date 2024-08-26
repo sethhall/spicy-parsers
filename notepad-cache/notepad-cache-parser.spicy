@@ -1,9 +1,6 @@
-module Notepad;
+module NotepadCache;
 
 import spicy;
-
-# Count the number of invalid checksums in the file to report how many were invalid.
-global invalid_checksums: uint64 = 0;
 
 # This doesn't support 128bit values... only 64bit. :(
 type uLEB128 = unit {
@@ -64,9 +61,6 @@ type UnsavedChunk = unit {
     # Ok, now we're caught back to to where we were in the input stream...
     crc32: uint32 {
         self.valid_checksum = (self.calculated_crc32 == $$);
-        if ( ! self.valid_checksum ) {
-            invalid_checksums++;
-        }
     }
     var calculated_crc32: uint64;
     var valid_checksum: bool;
@@ -93,10 +87,4 @@ public type File = unit {
     has_unsaved:     OneByteBool;
     checksum:        bytes &size=4;
     unsaved_chunks:  UnsavedChunk[] &eod;
-
-    on %done {
-        #if ( invalid_checksums == 0 ) {
-        #    print "All checksums look good!";
-        #}
-    }
 };
