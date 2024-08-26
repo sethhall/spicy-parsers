@@ -1,0 +1,102 @@
+module Notepad;
+
+import spicy;
+
+# Count the number of invalid checksums in the file to report how many were invalid.
+global invalid_checksums: uint64 = 0;
+
+# This doesn't support 128bit values... only 64bit. :(
+type uLEB128 = unit {
+    var xresult: uint64 = 0;
+    var shift_width: uint16 = 0;
+
+    : uint8[] &until-including=(($$ & 0x80) == 0) foreach {
+        self.xresult += (cast<uint64>($$ & 0x7F) << self.shift_width);
+        self.shift_width += 7;
+    }
+} &convert=self.xresult;
+
+type OneByteBool = unit {
+    x: uint8;
+} &convert=(self.x==0 ? False : True);
+
+type WideString = unit(num_chars: uint64) {
+    str: (bytes &size=2)[num_chars];
+} &convert=b"".join(self.str);
+
+type Encodings = enum {
+    ANSI = 0x01,
+    UTF_16LE = 0x02,
+    UTF_16BE = 0x03,
+    UTF_8BOM = 0x04,
+    UTF_8 = 0x05,
+};
+
+type LineEndings = enum {
+    CRLF = 0x01,
+    CR = 0x02,
+    LF = 0x03,
+};
+
+type ConfigBlock = unit {
+    word_wrap: OneByteBool;
+    rtl: OneByteBool;
+    show_unicode: OneByteBool;
+    version: uLEB128;
+    unknown: uint16;
+};
+
+type UnsavedChunk = unit {
+    cursor_position: uLEB128;
+    deletion_number: uLEB128;
+    addition_number: uLEB128;
+    chars: WideString(self.addition_number) {
+        # Note how far into the input stream we currently are...
+        self.checksummed_bytes = self.offset();
+        # Jump back to the beginning of the unit so we can parse the data again that 
+        # we want to calculate the crc32 for.
+        self.set_input(self.input());
+    }
+    var checksummed_bytes: uint64;
+    : bytes &size=self.checksummed_bytes {
+        self.calculated_crc32 = spicy::crc32_add(spicy::crc32_init(), $$);
+    }
+    # Ok, now we're caught back to to where we were in the input stream...
+    crc32: uint32 {
+        self.valid_checksum = (self.calculated_crc32 == $$);
+        if ( ! self.valid_checksum ) {
+            invalid_checksums++;
+        }
+    }
+    var calculated_crc32: uint64;
+    var valid_checksum: bool;
+};
+
+public type File = unit {
+    header: b"NP\x00" &synchronize;
+    saved: OneByteBool;
+        path_length:  uLEB128 if (self.saved);
+        path:         WideString(self.path_length) if (self.saved);
+        file_size:    uLEB128 if (self.saved);
+        encoding:     uint8 &convert=Encodings($$) if (self.saved);
+        line_endings: uint8 &convert=LineEndings($$) if (self.saved);
+        last_write:   uLEB128 if (self.saved);
+        sha256:       bytes &size=32 if (self.saved);
+        unknown1:     uint8 if (self.saved);
+
+    unknown2:        uint8;
+    selection_start: uLEB128;
+    selection_end:   uLEB128;
+    config_block:    ConfigBlock;
+    content_length:  uLEB128;
+    content:         WideString(self.content_length);
+    has_unsaved:     OneByteBool;
+    checksum:        bytes &size=4;
+    unsaved_chunks:  UnsavedChunk[] &eod;
+
+    on %done {
+        #if ( invalid_checksums == 0 ) {
+        #    print "All checksums look good!";
+        #}
+    }
+};
