@@ -1,6 +1,7 @@
 module NotepadCache;
 
 import spicy;
+%byte-order=spicy::ByteOrder::Big;
 
 # This doesn't support 128bit values... only 64bit. :(
 type uLEB128 = unit {
@@ -17,9 +18,42 @@ type OneByteBool = unit {
     x: uint8;
 } &convert=(self.x==0 ? False : True);
 
-type WideString = unit(num_chars: uint64) {
-    str: (bytes &size=2)[num_chars];
-} &convert=b"".join(self.str);
+type WideString = unit(num_chars: uint64) {    
+    : (uint16)[num_chars] foreach {
+        local code_point: uint32 = 0;
+        # Decode utf16
+        if ( 0xD800 <= $$ && $$ <= 0xDBFF ) {
+            # high surrogate
+            self.high_surrogate = $$;
+            return;
+        } else if ( 0xDC00 <= $$ && $$ <= 0xDFFF ) {
+            # low surrogate
+            code_point = 0x10000 + (cast<uint32>(self.high_surrogate - 0xD800) << 10) + ($$ - 0xDC00);
+        } else {
+            code_point = $$;
+        }
+
+        # Encode utf8
+        if ( code_point < 0x80 ) {
+            self.utf8 += pack(code_point, spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
+        } else if ( code_point < 0x800 ) {
+            self.utf8 += pack((0xC0 | (code_point >> 6)), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
+            self.utf8 += pack((0x80 | (code_point & 0x3F)), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
+        } else if ( code_point < 0x10000 ) {
+            self.utf8 += pack((0xE0 | (code_point >> 12)), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
+            self.utf8 += pack((0x80 | (code_point >> 6) & 0x3F), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
+            self.utf8 += pack((0x80 | (code_point & 0x3F)), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
+        } else {
+            self.utf8 += pack((0xF0 | (code_point >> 18)), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
+            self.utf8 += pack((0x80 | (code_point >> 12) & 0x3F), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
+            self.utf8 += pack((0x80 | (code_point >> 6) & 0x3F), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
+            self.utf8 += pack((0x80 | (code_point & 0x3F)), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
+        }
+    }
+
+    var utf8: bytes;
+    var high_surrogate: uint16;
+} &convert=self.utf8.decode() &byte-order=spicy::ByteOrder::Little;
 
 type Encodings = enum {
     ANSI = 0x01,
@@ -85,6 +119,6 @@ public type File = unit {
     content_length:  uLEB128;
     content:         WideString(self.content_length);
     has_unsaved:     OneByteBool;
-    checksum:        bytes &size=4;
+    checksum:        uint32;
     unsaved_chunks:  UnsavedChunk[] &eod;
 };
