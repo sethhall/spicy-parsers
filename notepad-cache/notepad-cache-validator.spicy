@@ -2,18 +2,26 @@ module NotepadValidityTool;
 import NotepadCache;
 
 # Count the number of invalid checksums in the file to report how many were invalid.
-global invalid_checksums: uint64 = 0;
+global invalid_unsaved_chunk_checksums: uint64 = 0;
+
+on NotepadCache::File::crc32 {
+    if ( self.valid_checksum ) {
+        print "The saved file data has a valid checksum!";
+    } else {
+        print "The saved file has an invalid CRC32 checksum!";
+    }
+}
 
 on NotepadCache::UnsavedChunk::%done {
     if ( ! self.valid_checksum ) {
-        invalid_checksums++;
+        invalid_unsaved_chunk_checksums++;
     }
 }
 
 on NotepadCache::File::%done {
-    if ( invalid_checksums > 0 ) {
-        print "%d invalid checksums!" %invalid_checksums;
+    if ( invalid_unsaved_chunk_checksums > 0 ) {
+        print "%d invalid checksums!" % invalid_unsaved_chunk_checksums;
     } else {
-        print "All checksums look good!";
+        print "All UnsavedChunk checksums look good!";
     }
 }
