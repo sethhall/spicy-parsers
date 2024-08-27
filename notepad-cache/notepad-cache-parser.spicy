@@ -15,8 +15,8 @@ type uLEB128 = unit {
 } &convert=self.xresult;
 
 type uLEB128_Timestamp = unit {
-    x: uLEB128 &convert=(time_ns(($$-(11644473600 * 10000000))*100));
-} &convert=self.x;
+    x: uLEB128;
+} &convert=(time_ns((self.x-(11644473600 * 10000000))*100));
 
 type OneByteBool = unit {
     x: uint8;
