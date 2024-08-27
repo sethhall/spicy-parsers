@@ -42,29 +42,36 @@ public type String = unit(input_endianness: spicy::ByteOrder = spicy::ByteOrder:
             return;
         } else if ( 0xDC00 <= $$ && $$ <= 0xDFFF ) {
             # low surrogate
-            code_point = 0x10000 + (cast<uint32>(self.high_surrogate - 0xD800) << 10) + ($$ - 0xDC00);
+            if ( self.high_surrogate != 0 ) {
+                code_point = 0x10000 + (cast<uint32>(self.high_surrogate - 0xD800) << 10) + ($$ - 0xDC00);
+                self.high_surrogate = 0;  # Reset high surrogate after use
+            } else {
+                # Unpaired low surrogate, treat as individual character
+                code_point = $$;
+            }
         } else {
             code_point = $$;
+            self.high_surrogate = 0;  # Reset high surrogate if it wasn't used
         }
 
         # Encode utf8
         if ( code_point < 0x80 ) {
             self.utf8 += pack(cast<uint8>(code_point), spicy::ByteOrder::Little);
         } else if ( code_point < 0x800 ) {
-            self.utf8 += pack(cast<uint8>((0xC0 | code_point >> 6)), spicy::ByteOrder::Little);
-            self.utf8 += pack(cast<uint8>((0x80 | code_point & 0x3F)), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0xC0 | (code_point >> 6))), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0x80 | (code_point & 0x3F))), spicy::ByteOrder::Little);
         } else if ( code_point < 0x10000 ) {
-            self.utf8 += pack(cast<uint8>((0xE0 | code_point >> 12)), spicy::ByteOrder::Little);
-            self.utf8 += pack(cast<uint8>((0x80 | code_point >> 6) & 0x3F), spicy::ByteOrder::Little);
-            self.utf8 += pack(cast<uint8>((0x80 | code_point & 0x3F)), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0xE0 | (code_point >> 12))), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0x80 | ((code_point >> 6)) & 0x3F)), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0x80 | (code_point & 0x3F))), spicy::ByteOrder::Little);
         } else {
-            self.utf8 += pack(cast<uint8>((0xF0 | code_point >> 18)), spicy::ByteOrder::Little);
-            self.utf8 += pack(cast<uint8>((0x80 | code_point >> 12) & 0x3F), spicy::ByteOrder::Little);
-            self.utf8 += pack(cast<uint8>((0x80 | code_point >> 6) & 0x3F), spicy::ByteOrder::Little);
-            self.utf8 += pack(cast<uint8>((0x80 | code_point & 0x3F)), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0xF0 | (code_point >> 18))), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0x80 | ((code_point >> 12) & 0x3F))), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0x80 | ((code_point >> 6) & 0x3F))), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0x80 | (code_point & 0x3F))), spicy::ByteOrder::Little);
         }
     }
 
     var utf8: bytes;
-    var high_surrogate: uint16;
+    var high_surrogate: uint16 = 0;
 } &convert=self.utf8.decode() &byte-order=spicy::ByteOrder::Little;
