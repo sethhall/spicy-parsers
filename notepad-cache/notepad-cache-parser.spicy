@@ -104,14 +104,16 @@ type UnsavedChunk = unit {
 public type File = unit {
     header: b"NP\x00" &synchronize;
     saved: OneByteBool;
-        path_length:  uLEB128 if (self.saved);
-        path:         WideString(self.path_length) if (self.saved);
-        file_size:    uLEB128 if (self.saved);
-        encoding:     uint8 &convert=Encodings($$) if (self.saved);
-        line_endings: uint8 &convert=LineEndings($$) if (self.saved);
-        last_write:   uLEB128_Timestamp if (self.saved);
-        sha256:       bytes &size=32 if (self.saved);
-        unknown1:     uint8 if (self.saved);
+    if ( self.saved ) {
+        path_length:  uLEB128;
+        path:         WideString(self.path_length);
+        file_size:    uLEB128;
+        encoding:     uint8 &convert=Encodings($$);
+        line_endings: uint8 &convert=LineEndings($$);
+        last_write:   uLEB128_Timestamp;
+        sha256:       bytes &size=32;
+        unknown1:     uint8;
+    }
 
     unknown2:        uint8;
     selection_start: uLEB128;
