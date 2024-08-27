@@ -74,4 +74,4 @@ public type String = unit(input_endianness: spicy::ByteOrder = spicy::ByteOrder:
 
     var utf8: bytes;
     var high_surrogate: uint16 = 0;
-} &convert=self.utf8.decode() &byte-order=spicy::ByteOrder::Little;
+} &convert=self.utf8.decode();
