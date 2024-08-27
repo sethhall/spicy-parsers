@@ -39,19 +39,19 @@ type WideString = unit(num_chars: uint64) {
 
         # Encode utf8
         if ( code_point < 0x80 ) {
-            self.utf8 += pack(code_point, spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
+            self.utf8 += pack(cast<uint8>(code_point), spicy::ByteOrder::Little);
         } else if ( code_point < 0x800 ) {
-            self.utf8 += pack((0xC0 | (code_point >> 6)), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
-            self.utf8 += pack((0x80 | (code_point & 0x3F)), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
+            self.utf8 += pack((0xC0 | cast<uint8>(code_point >> 6)), spicy::ByteOrder::Little);
+            self.utf8 += pack((0x80 | cast<uint8>(code_point & 0x3F)), spicy::ByteOrder::Little);
         } else if ( code_point < 0x10000 ) {
-            self.utf8 += pack((0xE0 | (code_point >> 12)), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
-            self.utf8 += pack((0x80 | (code_point >> 6) & 0x3F), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
-            self.utf8 += pack((0x80 | (code_point & 0x3F)), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
+            self.utf8 += pack((0xE0 | cast<uint8>(code_point >> 12)), spicy::ByteOrder::Little);
+            self.utf8 += pack((0x80 | cast<uint8>(code_point >> 6) & 0x3F), spicy::ByteOrder::Little);
+            self.utf8 += pack((0x80 | cast<uint8>(code_point & 0x3F)), spicy::ByteOrder::Little);
         } else {
-            self.utf8 += pack((0xF0 | (code_point >> 18)), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
-            self.utf8 += pack((0x80 | (code_point >> 12) & 0x3F), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
-            self.utf8 += pack((0x80 | (code_point >> 6) & 0x3F), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
-            self.utf8 += pack((0x80 | (code_point & 0x3F)), spicy::ByteOrder::Little).strip(spicy::Side::Right, b"\x00");
+            self.utf8 += pack((0xF0 | cast<uint8>(code_point >> 18)), spicy::ByteOrder::Little);
+            self.utf8 += pack((0x80 | cast<uint8>(code_point >> 12) & 0x3F), spicy::ByteOrder::Little);
+            self.utf8 += pack((0x80 | cast<uint8>(code_point >> 6) & 0x3F), spicy::ByteOrder::Little);
+            self.utf8 += pack((0x80 | cast<uint8>(code_point & 0x3F)), spicy::ByteOrder::Little);
         }
     }
 
