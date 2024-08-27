@@ -2,7 +2,7 @@ module UTF16;
 
 import spicy;
 
-type UTF16_BOM = unit {
+type BOM = unit {
     switch {
           -> big:    b"\xFE\xFF";
           -> little: b"\xFF\xFE";
@@ -21,7 +21,7 @@ public type String = unit(input_endianness: spicy::ByteOrder = spicy::ByteOrder:
 
     # We don't need to shuffle the input pointer here because &try/backtrack() will
     # automatically handle that if UTF16_BOM doesn't actually find a BOM.
-    bom: UTF16_BOM &try {
+    bom: BOM &try {
         if ( $$?.big ) { 
             #print "found a big endian BOM!";
             self.endianness = spicy::ByteOrder::Big;
