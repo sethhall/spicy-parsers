@@ -1,0 +1,70 @@
+module UTF16;
+
+import spicy;
+
+type UTF16_BOM = unit {
+    switch {
+          -> big:    b"\xFE\xFF";
+          -> little: b"\xFF\xFE";
+    };
+
+    on %error {
+        # If the string is empty then the switch will fall thru and fail.
+        # We now want to backtrack out of here.
+        #print "couldn't parse or didn't find a UTF-16 BOM, now backtrack!";
+        self.backtrack();
+    }
+};
+
+public type String = unit(input_endianness: spicy::ByteOrder = spicy::ByteOrder::Big) {
+    var endianness: spicy::ByteOrder = input_endianness;
+
+    # We don't need to shuffle the input pointer here because &try/backtrack() will
+    # automatically handle that if UTF16_BOM doesn't actually find a BOM.
+    bom: UTF16_BOM &try {
+        if ( $$?.big ) { 
+            #print "found a big endian BOM!";
+            self.endianness = spicy::ByteOrder::Big;
+        } else if ( $$?.little ) {
+            #print "found a little endian BOM!";
+            self.endianness = spicy::ByteOrder::Little;
+        } else {
+            #print "found no BOM";
+        }
+    }
+
+    : (uint16 &byte-order=self.endianness)[] &eod foreach {
+        local code_point: uint32 = 0;
+        # Decode utf16
+        if ( 0xD800 <= $$ && $$ <= 0xDBFF ) {
+            # high surrogate
+            self.high_surrogate = $$;
+            return;
+        } else if ( 0xDC00 <= $$ && $$ <= 0xDFFF ) {
+            # low surrogate
+            code_point = 0x10000 + (cast<uint32>(self.high_surrogate - 0xD800) << 10) + ($$ - 0xDC00);
+        } else {
+            code_point = $$;
+        }
+
+        # Encode utf8
+        if ( code_point < 0x80 ) {
+            self.utf8 += pack(cast<uint8>(code_point), spicy::ByteOrder::Little);
+        } else if ( code_point < 0x800 ) {
+            self.utf8 += pack(cast<uint8>((0xC0 | code_point >> 6)), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0x80 | code_point & 0x3F)), spicy::ByteOrder::Little);
+        } else if ( code_point < 0x10000 ) {
+            self.utf8 += pack(cast<uint8>((0xE0 | code_point >> 12)), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0x80 | code_point >> 6) & 0x3F), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0x80 | code_point & 0x3F)), spicy::ByteOrder::Little);
+        } else {
+            self.utf8 += pack(cast<uint8>((0xF0 | code_point >> 18)), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0x80 | code_point >> 12) & 0x3F), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0x80 | code_point >> 6) & 0x3F), spicy::ByteOrder::Little);
+            self.utf8 += pack(cast<uint8>((0x80 | code_point & 0x3F)), spicy::ByteOrder::Little);
+        }
+    }
+
+    var utf8: bytes;
+    var high_surrogate: uint16;
+} &convert=self.utf8.decode() &byte-order=spicy::ByteOrder::Little;

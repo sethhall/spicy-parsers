@@ -1,6 +1,7 @@
 module NotepadCache;
 
 import spicy;
+import UTF16;
 %byte-order=spicy::ByteOrder::Big;
 
 # This doesn't support 128bit values... only 64bit. :(
@@ -21,43 +22,6 @@ type uLEB128_Timestamp = unit {
 type OneByteBool = unit {
     x: uint8;
 } &convert=(self.x==0 ? False : True);
-
-type WideString = unit(num_chars: uint64) {
-    : (uint16)[num_chars] foreach {
-        local code_point: uint32 = 0;
-        # Decode utf16
-        if ( 0xD800 <= $$ && $$ <= 0xDBFF ) {
-            # high surrogate
-            self.high_surrogate = $$;
-            return;
-        } else if ( 0xDC00 <= $$ && $$ <= 0xDFFF ) {
-            # low surrogate
-            code_point = 0x10000 + (cast<uint32>(self.high_surrogate - 0xD800) << 10) + ($$ - 0xDC00);
-        } else {
-            code_point = $$;
-        }
-
-        # Encode utf8
-        if ( code_point < 0x80 ) {
-            self.utf8 += pack(cast<uint8>(code_point), spicy::ByteOrder::Little);
-        } else if ( code_point < 0x800 ) {
-            self.utf8 += pack((0xC0 | cast<uint8>(code_point >> 6)), spicy::ByteOrder::Little);
-            self.utf8 += pack((0x80 | cast<uint8>(code_point & 0x3F)), spicy::ByteOrder::Little);
-        } else if ( code_point < 0x10000 ) {
-            self.utf8 += pack((0xE0 | cast<uint8>(code_point >> 12)), spicy::ByteOrder::Little);
-            self.utf8 += pack((0x80 | cast<uint8>(code_point >> 6) & 0x3F), spicy::ByteOrder::Little);
-            self.utf8 += pack((0x80 | cast<uint8>(code_point & 0x3F)), spicy::ByteOrder::Little);
-        } else {
-            self.utf8 += pack((0xF0 | cast<uint8>(code_point >> 18)), spicy::ByteOrder::Little);
-            self.utf8 += pack((0x80 | cast<uint8>(code_point >> 12) & 0x3F), spicy::ByteOrder::Little);
-            self.utf8 += pack((0x80 | cast<uint8>(code_point >> 6) & 0x3F), spicy::ByteOrder::Little);
-            self.utf8 += pack((0x80 | cast<uint8>(code_point & 0x3F)), spicy::ByteOrder::Little);
-        }
-    }
-
-    var utf8: bytes;
-    var high_surrogate: uint16;
-} &convert=self.utf8.decode() &byte-order=spicy::ByteOrder::Little;
 
 type Encodings = enum {
     ANSI = 0x01,
@@ -85,7 +49,7 @@ type UnsavedChunk = unit {
     cursor_position: uLEB128;
     deletion_number: uLEB128;
     addition_number: uLEB128;
-    chars: WideString(self.addition_number) {
+    chars: UTF16::String(spicy::ByteOrder::Little) &size=(self.addition_number*2) {
         # Note how far into the input stream we currently are...
         self.crc_data_len = self.offset();
     }
@@ -106,7 +70,7 @@ public type File = unit {
     saved: OneByteBool;
     if ( self.saved ) {
         path_length:  uLEB128;
-        path:         WideString(self.path_length);
+        path:         UTF16::String(spicy::ByteOrder::Little) &size=(self.path_length*2);
         file_size:    uLEB128;
         encoding:     uint8 &convert=Encodings($$);
         line_endings: uint8 &convert=LineEndings($$);
@@ -120,7 +84,7 @@ public type File = unit {
     selection_end:   uLEB128;
     config_block:    ConfigBlock;
     content_length:  uLEB128;
-    content:         WideString(self.content_length);
+    content:         UTF16::String(spicy::ByteOrder::Little) &size=(self.content_length*2);
     has_unsaved:     OneByteBool {
         self.crc_data_len = self.offset()-3;
     }
