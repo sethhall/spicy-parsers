@@ -87,13 +87,10 @@ type UnsavedChunk = unit {
     addition_number: uLEB128;
     chars: WideString(self.addition_number) {
         # Note how far into the input stream we currently are...
-        self.checksummed_bytes = self.offset();
-        # Jump back to the beginning of the unit so we can parse the data again that 
-        # we want to calculate the crc32 for.
-        self.set_input(self.input());
+        self.crc_data_len = self.offset();
     }
-    var checksummed_bytes: uint64;
-    : bytes &size=self.checksummed_bytes {
+    var crc_data_len: uint64;
+    : bytes &size=self.crc_data_len &parse-at=self.input() {
         self.calculated_crc32 = spicy::crc32_add(spicy::crc32_init(), $$);
     }
     # Ok, now we're caught back to to where we were in the input stream...
@@ -124,9 +121,9 @@ public type File = unit {
     content:         WideString(self.content_length);
     has_unsaved:     OneByteBool {
         self.crc_data_len = self.offset()-3;
-        self.set_input(self.input()+3); # skip past the magic bytes
     }
-    : bytes &size=self.crc_data_len {
+    var crc_data_len: uint64;
+    : bytes &size=self.crc_data_len &parse-at=(self.input()+3) {
         self.calculated_crc32 = spicy::crc32_add(spicy::crc32_init(), $$);
     }
     crc32: uint32 {
@@ -136,5 +133,4 @@ public type File = unit {
     var valid_checksum: bool;
 
     unsaved_chunks:  UnsavedChunk[] &eod;
-    var crc_data_len: uint64;
 };
