@@ -14,11 +14,15 @@ type uLEB128 = unit {
     }
 } &convert=self.xresult;
 
+type uLEB128_Timestamp = unit {
+    x: uLEB128 &convert=(time_ns(($$-(11644473600 * 10000000))*100));
+} &convert=self.x;
+
 type OneByteBool = unit {
     x: uint8;
 } &convert=(self.x==0 ? False : True);
 
-type WideString = unit(num_chars: uint64) {    
+type WideString = unit(num_chars: uint64) {
     : (uint16)[num_chars] foreach {
         local code_point: uint32 = 0;
         # Decode utf16
@@ -108,7 +112,7 @@ public type File = unit {
         file_size:    uLEB128 if (self.saved);
         encoding:     uint8 &convert=Encodings($$) if (self.saved);
         line_endings: uint8 &convert=LineEndings($$) if (self.saved);
-        last_write:   uLEB128 if (self.saved);
+        last_write:   uLEB128_Timestamp if (self.saved);
         sha256:       bytes &size=32 if (self.saved);
         unknown1:     uint8 if (self.saved);
 
