@@ -1,0 +1,22 @@
+module STL;
+import spicy;
+
+%byte-order = spicy::ByteOrder::Little;
+
+public type File = unit {
+    header       : bytes &size=80;
+    total_facets : uint32;
+    facets       : Facet[self.total_facets];
+};
+
+type Facet = unit {
+    normal: Point;
+    vertices: Point[3];
+    pad: skip bytes &size=2;
+};
+
+type Point = unit {
+    x: real &type=spicy::RealType::IEEE754_Single;
+    y: real &type=spicy::RealType::IEEE754_Single;
+    z: real &type=spicy::RealType::IEEE754_Single;
+};

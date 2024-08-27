@@ -1,0 +1,156 @@
+module JSON;
+
+import spicy;
+
+# This supports jsonc (json with comments)
+%skip = /[ \t\r\n]*(\/\/[^\n]*)*[ \t\r\n]*/;
+
+public type File = unit {
+    values: JSONValue[];
+};
+
+type JSONValue = unit {
+    switch {
+      -> obj : JSONObject;
+      -> arr : JSONArray;
+      -> str : JSONString;
+      -> bol : JSONBool;
+      -> nul : JSONNull;
+      -> num : JSONNumber;
+    };
+};
+
+type JSONObject = unit {
+    : /\{/;
+    fields: JSONPair[];
+    : /\}/;
+} &convert=json_object_to_map($$);
+
+type JSONPair = unit {
+    key: JSONString;
+    : skip /:/;
+    value: JSONValue;
+    : skip /,?/;
+};
+
+type JSONArrayElement = unit {
+    value: JSONValue;
+    : skip /,?/;
+} &convert=self.value;
+
+type JSONArray = unit {
+    : skip b"[";
+    values: JSONArrayElement[];
+    : skip b"]";
+} &convert=self.values;
+
+type JSONString = unit {
+    : /\"/;
+    value: uint8[] &until=($$ == 34 && (|self.value| == 0 || self.value.back() != 92));
+} &convert=vec_to_str(self.value);
+
+type JSONBool = unit {
+    value: /false|true/;
+} &convert=str_to_bool(self.value);
+
+type JSONNull = unit {
+    value: /null/;
+} &convert=get_null();
+
+type JSONNumber = unit {
+    value: /-?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?/ &nosub;
+} &convert=self.value.to_real();
+
+
+#######################
+## Utility Functions ##
+#######################
+function get_null(): optional<bool> {
+    # I couldn't figure out a better way to return a void value, but this works at least.
+    local x: optional<bool>;
+    return x;
+}
+
+function json_object_to_map(jo: JSONObject): map<string, JSONValue> {
+    local m: map<string, JSONValue>;
+    for ( elem in jo.fields ) {
+        m[elem.key] = elem.value;
+    }
+    return m;
+}
+
+function vec_to_str(vec: vector<uint8>): string {
+    local out = b"";
+    local escaping = False;
+    local reading_unicode_val = 0;
+    local unicode_vals: vector<uint8>&;
+    for ( i in vec ) {
+        local x = i;
+        if ( reading_unicode_val > 0 ) {
+            --reading_unicode_val;
+            unicode_vals.push_back(x);
+            if ( reading_unicode_val == 0 ) {
+                # TODO: turn the unicode_vals vector into a real unicode character... but how?
+                #       right now this just packs the replacement character "�"
+                # I still don't even fully understand why unicode has escaping like this...
+                out += 0xEF;
+                out += 0xBF;
+                out += 0xBD;
+            }
+            continue;
+
+        } else if ( ! escaping && x == 92 ) {
+            # Begin handling backslash escaping
+            escaping = True;
+            continue;
+
+        } else if ( escaping ) {
+            escaping = False;
+
+            switch ( x ) {
+                case 0x62: {
+                    # "b" - backspace
+                    x = 0x08;
+                }
+                case 0x66: {
+                    # "f" - formfeed
+                    x = 0x0C;
+                }
+                case 0x6E: {
+                    # "n" - newline
+                    x = 0x0A;
+                }
+                case 0x72: {
+                    # "r" - carriage return
+                    x = 0x0D;
+                }
+                case 0x74: {
+                    # "t" - horizontal tab
+                    x = 0x09;
+                }
+                case 0x75: {
+                    # "u" - unicode escape begin
+                    # Read the next 4 bytes
+                    reading_unicode_val = 4;
+                    unicode_vals = new vector<uint8>(4);
+                    continue;
+                }
+                default: {
+                    # do nothing and pass the value straight thru.
+                    x = x;
+                }
+            }
+        }
+        out += pack(x, spicy::ByteOrder::Network);
+    }
+
+    return out.decode();
+}
+
+function str_to_bool(str: bytes): bool {
+    switch ( str ) {
+        case b"false": return False;
+        case b"true": return True;
+        default: assert False : "Something neither true nor false was fed to 'to_bool'";
+    }
+}
