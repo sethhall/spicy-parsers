@@ -21,3 +21,9 @@ spicy-dump  -p Notepad_Cache::File -f notepad-cache/example1.bin --json notepad-
 ```sh
 spicy-driver --library-path=notepad-cache -p Notepad_Cache::File -f notepad-cache/example1.bin notepad-cache/notepad_cache_validator.spicy
 ```
+
+### Parse an iCalendar file.
+
+```sh
+spicy-dump -f icalendar/test.ics icalendar/icalendar.spicy
+```

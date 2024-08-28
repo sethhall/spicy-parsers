@@ -1,0 +1,52 @@
+module iCalendar;
+
+import spicy;
+
+# Define the main vCalendar structure
+public type File = unit {
+    components: Component[];
+};
+
+const NL = /\r?\n/;
+const Token = /[^:\r\n]+/;
+
+type ComponentOrProperty = unit {
+    switch {
+        -> component: Component;
+        -> prop: Property;
+    };
+    : NL;
+};
+
+type Component = unit {
+    : /BEGIN:/;
+    begin_component: /[^\r\n]+/;
+    : NL;
+    sub: ComponentOrProperty[];
+    : /END:/;
+    end_component: /[^\r\n]+/;
+};
+
+type ExtValue = unit(prop: Property) {
+    : /\r?\n /;
+    : /[^\r\n]+/ {
+        prop.value += $$;
+    }
+};
+
+type Property = unit {
+    name: /[^:;\r\n]+/;
+    params: PropertyParam[];
+    : /:/;
+    value: /[^\r\n]+/;
+    # Leaving out extension values until this bug is fixed:
+    #    https://github.com/zeek/spicy/issues/1844
+    #: ExtValue(self)[];
+};
+
+type PropertyParam = unit {
+    : /;/;
+    name: /[^=]+/;
+    : /\=/;
+    value: /[^;:]+/;
+};
