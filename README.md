@@ -13,11 +13,11 @@ spicy-dump -f unicode/example1.txt unicode/utf16.spicy --json | jq
 ### Parse a Notepad Cache file and dump the entire data structure.
 
 ```sh
-spicy-dump --library-path=unicode/ -p NotepadCache::File -f notepad-cache/example1.bin --json notepad-cache/notepad-cache-parser.spicy | jq
+spicy-dump  -p Notepad_Cache::File -f notepad-cache/example1.bin --json notepad-cache/notepad_cache.spicy | jq
 ```
 
 ### Run a tool to validate CRC32 checksums in a Notepad Cache file.
 
 ```sh
-spicy-driver --library-path=unicode/ -p NotepadCache::File -f notepad-cache/example1.bin notepad-cache/notepad-cache-validator.spicy notepad-cache/notepad-cache-parser.spicy
+spicy-driver --library-path=notepad-cache -p Notepad_Cache::File -f notepad-cache/example1.bin notepad-cache/notepad_cache_validator.spicy
 ```

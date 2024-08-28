@@ -1,7 +1,7 @@
-module NotepadCache;
+module Notepad_Cache;
 
 import spicy;
-import UTF16;
+import UTF16 from unicode;
 %byte-order=spicy::ByteOrder::Big;
 
 # This doesn't support 128bit values... only 64bit. :(
@@ -75,7 +75,7 @@ public type File = unit {
         encoding:     uint8 &convert=Encodings($$);
         line_endings: uint8 &convert=LineEndings($$);
         last_write:   uLEB128_Timestamp;
-        sha256:       bytes &size=32;
+        sha256:       bytes &size=32 &convert=spicy::bytes_to_hexstring($$);
         unknown1:     uint8;
     }
 
