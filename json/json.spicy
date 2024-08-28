@@ -3,61 +3,61 @@ module JSON;
 import spicy;
 
 # This supports jsonc (json with comments)
-%skip = /[ \t\r\n]*(\/\/[^\n]*)*[ \t\r\n]*/;
+%skip = /[ \t\r\n]*(\/\/[^\r\n]*)*[ \t\r\n]*/;
 
 public type File = unit {
-    values: JSONValue[];
-};
+    records: Value[];
+} &convert=self.records;
 
-type JSONValue = unit {
+type Value = unit {
     switch {
-      -> obj : JSONObject;
-      -> arr : JSONArray;
-      -> str : JSONString;
-      -> bol : JSONBool;
-      -> nul : JSONNull;
-      -> num : JSONNumber;
+      -> obj : Object;
+      -> arr : Array;
+      -> str : String;
+      -> bol : Bool;
+      -> nul : JNull;
+      -> num : Number;
     };
 };
 
-type JSONObject = unit {
+type Object = unit {
     : /\{/;
-    fields: JSONPair[];
+    fields: Pair[];
     : /\}/;
 } &convert=json_object_to_map($$);
 
-type JSONPair = unit {
-    key: JSONString;
+type Pair = unit {
+    key: String;
     : skip /:/;
-    value: JSONValue;
+    value: Value;
     : skip /,?/;
 };
 
-type JSONArrayElement = unit {
-    value: JSONValue;
+type ArrayElement = unit {
+    value: Value;
     : skip /,?/;
 } &convert=self.value;
 
-type JSONArray = unit {
+type Array = unit {
     : skip b"[";
-    values: JSONArrayElement[];
+    values: ArrayElement[];
     : skip b"]";
 } &convert=self.values;
 
-type JSONString = unit {
+type String = unit {
     : /\"/;
     value: uint8[] &until=($$ == 34 && (|self.value| == 0 || self.value.back() != 92));
 } &convert=vec_to_str(self.value);
 
-type JSONBool = unit {
+type Bool = unit {
     value: /false|true/;
 } &convert=str_to_bool(self.value);
 
-type JSONNull = unit {
+type JNull = unit {
     value: /null/;
 } &convert=get_null();
 
-type JSONNumber = unit {
+type Number = unit {
     value: /-?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?/ &nosub;
 } &convert=self.value.to_real();
 
@@ -71,8 +71,8 @@ function get_null(): optional<bool> {
     return x;
 }
 
-function json_object_to_map(jo: JSONObject): map<string, JSONValue> {
-    local m: map<string, JSONValue>;
+function json_object_to_map(jo: Object): map<string, Value> {
+    local m: map<string, Value>;
     for ( elem in jo.fields ) {
         m[elem.key] = elem.value;
     }
