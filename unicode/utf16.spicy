@@ -33,7 +33,9 @@ public type String = unit(input_endianness: spicy::ByteOrder = spicy::ByteOrder:
         }
     }
 
-    : (uint16 &byte-order=self.endianness)[] &eod foreach {
+    # If an outer size is defined for the field, this terminate when the size is reached,
+    # but if a size is not defined, then it will look to null terminate the string.
+    : (uint16 &byte-order=self.endianness)[] &eod &until=($$==0) foreach {
         local code_point: uint32 = 0;
         # Decode utf16
         if ( 0xD800 <= $$ && $$ <= 0xDBFF ) {
