@@ -1,0 +1,74 @@
+module STL;
+import spicy;
+
+%byte-order = spicy::ByteOrder::Little;
+global points = set(0,1,2);
+global Xs: vector<real>;
+global Ys: vector<real>;
+global Zs: vector<real>;
+
+function same_point(a: Point, b: Point): bool {
+    return (a.x == b.x && a.y == b.y && a.z == b.z);
+}
+
+# This will return True if the two facets share a side which means
+# they will have two matching vertices.
+function sibling_facets(a: Facet, b: Facet): bool {
+    local matches = 0;
+    for ( i in points ) {
+        for ( j in points ) {
+            if ( same_point(a.vertices[i], b.vertices[j]) ) {
+                ++matches;
+            }
+        }
+    }
+    return (matches == 2);
+}
+
+public type File = unit {
+    header       : bytes &size=80;
+    total_facets : uint32 {
+        print "Total facets: %d" % $$;
+    }
+    facets       : Facet[self.total_facets];
+    on %done {
+        print "Searching for non-manifold facets...";
+        local non_manifold_facets: uint32 = 0;
+
+        for ( facet_one in self.facets ) {
+            local number_of_sibling_facets: uint32 = 0;
+            for ( facet_two in self.facets ) {
+                if ( sibling_facets(facet_one, facet_two) ) {
+                    number_of_sibling_facets++;
+               }
+            }
+            if ( number_of_sibling_facets != 3 ) {
+                print "Found a non-manifold facet.";
+                non_manifold_facets++;
+            }
+        }
+        print "Found %d non-manifold facets" % non_manifold_facets;
+    }
+};
+
+type Facet = unit {
+    var number_of_siblings: uint32 = 0;
+
+    normal: Point;
+    vertices: Point[3] {
+        for ( f in $$ ) {
+            Xs.push_back(f.x);
+            Ys.push_back(f.y);
+            Zs.push_back(f.z);
+        }
+    }
+    pad: skip bytes &size=2;
+};
+
+type Point = unit {
+    x: real &type=spicy::RealType::IEEE754_Single;
+    y: real &type=spicy::RealType::IEEE754_Single;
+    z: real &type=spicy::RealType::IEEE754_Single;
+};
+
+
